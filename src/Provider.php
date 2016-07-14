@@ -15,6 +15,13 @@ class Provider extends AbstractProvider implements ProviderInterface
     protected $scopes = ['email'];
 
     /**
+     * The user fields being requested.
+     *
+     * @var array
+     */
+    protected $fields = ['uid', 'first_name', 'last_name', 'screen_name', 'photo'];
+
+    /**
      * {@inheritdoc}
      */
     protected function getAuthUrl($state)
@@ -38,7 +45,10 @@ class Provider extends AbstractProvider implements ProviderInterface
     protected function getUserByToken($token)
     {
         $response = $this->getHttpClient()->get(
-            'https://api.vk.com/method/users.get?user_ids='.$token['user_id'].'&fields=uid,first_name,last_name,screen_name,photo'
+            sprintf('https://api.vk.com/method/users.get?user_ids=%s&fields=%s',
+                $token['user_id'],
+                implode(',', $this->fields)
+            )
         );
 
         $response = json_decode($response->getBody()->getContents(), true)['response'][0];
@@ -54,9 +64,11 @@ class Provider extends AbstractProvider implements ProviderInterface
     protected function mapUserToObject(array $user)
     {
         return (new User())->setRaw($user)->map([
-            'id' => $user['uid'], 'nickname' => $user['screen_name'],
-            'name' => $user['first_name'].' '.$user['last_name'],
-            'email' => array_get($user, 'email'), 'avatar' => $user['photo'],
+            'id'       => $user['uid'],
+            'nickname' => $user['screen_name'],
+            'name'     => $user['first_name'] . ' ' . $user['last_name'],
+            'email'    => array_get($user, 'email'),
+            'avatar'   => $user['photo'],
         ]);
     }
 
@@ -92,5 +104,31 @@ class Provider extends AbstractProvider implements ProviderInterface
         ));
 
         return $user->setToken(array_get($token, 'access_token'));
+    }
+
+    /**
+     * Set the user fields to request.
+     *
+     * @param  array $fields
+     * @return $this
+     */
+    public function fields(array $fields)
+    {
+        $this->fields = $fields;
+
+        return $this;
+    }
+
+    /**
+     * Append the user field to fields.
+     *
+     * @param $field
+     * @return $this
+     */
+    public function appendField($field)
+    {
+        $this->fields[] = $field;
+
+        return $this;
     }
 }
